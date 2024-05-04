@@ -1,5 +1,3 @@
-import 'package:flutter/cupertino.dart';
-
 class ToDo {
   String? id;
   String? todoText;
@@ -22,6 +20,14 @@ class ToDo {
       ToDo(
         id: '05',
         todoText: 'Hangout with friends',
+      ),
+      ToDo(
+        id: '06',
+        todoText: 'Testing the app',
+      ),
+      ToDo(
+        id: '07',
+        todoText: 'Testing 1',
       ),
     ];
   }
