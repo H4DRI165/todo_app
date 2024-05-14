@@ -3,32 +3,22 @@ class ToDo {
   String? todoText;
   bool isDone;
 
-  ToDo({required this.id, required this.todoText, this.isDone = false});
+  ToDo({
+    required this.id,
+    required this.todoText,
+    this.isDone = false,
+  });
 
-  static List<ToDo> todoList() {
-    return [
-      ToDo(id: '01', todoText: 'Exercise', isDone: true),
-      ToDo(id: '02', todoText: 'Buy Groceries', isDone: true),
-      ToDo(
-        id: '03',
-        todoText: 'Check Emails',
-      ),
-      ToDo(
-        id: '04',
-        todoText: 'Continue yesterday coding',
-      ),
-      ToDo(
-        id: '05',
-        todoText: 'Hangout with friends',
-      ),
-      ToDo(
-        id: '06',
-        todoText: 'Testing the app',
-      ),
-      ToDo(
-        id: '07',
-        todoText: 'Testing 1',
-      ),
-    ];
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'todoText': todoText,
+      'isDone': isDone ? 1 : 0,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'ToDo{id: $id, todoText: $todoText, isDone: $isDone}';
   }
 }

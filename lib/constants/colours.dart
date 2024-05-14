@@ -6,4 +6,6 @@ const Color blue = Color(0xFF355CCB);
 const Color black = Color(0xFF000000);
 const Color grey = Color(0xFF707070);
 
-const Color bgColor = Color(0xFFE8E8E8);
+const Color lightGrey = Color(0xFFF3F3F3);
+
+const Color white = Color(0xFFFDFDFD);
