@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../model/todo.dart';
 import '../constants/colours.dart';
 
@@ -6,14 +7,14 @@ class ToDoItem extends StatelessWidget {
   final ToDo todo;
   final Function(ToDo) onToDoChanged;
   final onDeleteItem;
-  final ShapeBorder? shape;
+  final String? deadlineAt;
 
   const ToDoItem({
     super.key,
     required this.todo,
     required this.onToDoChanged,
     required this.onDeleteItem,
-    this.shape,
+    this.deadlineAt,
   });
 
   String truncateWithEllipsis(String text, int maxLength) {
@@ -22,8 +23,22 @@ class ToDoItem extends StatelessWidget {
         : '${text.substring(0, maxLength)}...';
   }
 
+  // Function to check if the deadline date is past
+  bool isPastDeadline(String deadline) {
+    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+    final DateTime deadlineDate = dateFormat.parse(deadline);
+    final DateTime today = DateTime.now();
+
+    // Check if the deadline date is before today, considering only the date part
+    return deadlineDate.isBefore(DateTime(today.year, today.month, today.day));
+  }
+
   @override
   Widget build(BuildContext context) {
+    //  Determine the text colour based on the deadline date
+    final Color deadlineColor =
+        isPastDeadline(todo.deadlineAt!) ? Colors.red : grey;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 5, left: 20, right: 10),
       child: ClipRect(
@@ -32,43 +47,57 @@ class ToDoItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
           tileColor: lightGrey,
           leading: GestureDetector(
-            onTap: (){
+            onTap: () {
               onToDoChanged(todo); // Apply onToDoChange only to the checkbox
             },
             child: Icon(
+              size: 30,
               todo.isDone ? Icons.check_box : Icons.check_box_outline_blank,
               color: blue,
             ),
           ),
           title: GestureDetector(
-            onTap: (){},
-            child: Text(
-              truncateWithEllipsis(todo.todoText!, 22),
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 16,
-                color: black,
-                decoration: todo.isDone ? TextDecoration.lineThrough : null,
-              ),
+            onTap: () {},
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  truncateWithEllipsis(todo.todoText!, 22),
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: black,
+                    decoration: todo.isDone ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                Text(
+                  todo.deadlineAt!, // Replace with your actual text
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: deadlineColor, // Customize the color if needed
+                  ),
+                ),
+              ],
             ),
           ),
           trailing: GestureDetector(
-            onTap: (){},
+            onTap: () {},
             child: Container(
               padding: const EdgeInsets.all(0),
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              height: 35,
-              width: 35,
+              margin: const EdgeInsets.symmetric(vertical: 1),
+              height: 28,
+              width: 30,
               decoration: BoxDecoration(
                 color: red,
                 borderRadius: BorderRadius.circular(5),
               ),
               child: IconButton(
                 color: Colors.white,
-                iconSize: 18,
+                iconSize: 15,
                 icon: const Icon(Icons.delete),
                 onPressed: () {
                   onDeleteItem(todo.id);

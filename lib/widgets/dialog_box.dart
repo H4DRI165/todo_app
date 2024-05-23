@@ -5,7 +5,7 @@ import 'button.dart';
 
 class DialogBox extends StatefulWidget {
   final TextEditingController taskName;
-  VoidCallback onSave;
+  final Function(String taskName, String deadlineAt, String createdAt) onSave;
   VoidCallback onCancel;
 
   DialogBox({
@@ -20,20 +20,20 @@ class DialogBox extends StatefulWidget {
 }
 
 class _DialogBoxState extends State<DialogBox> {
-  late String currentDate;
+  late String displayDate;
 
   @override
   void initState() {
     super.initState();
-    // Initialize currentDate with the current date
-    currentDate =
+    //  Initialize displayDate with the current date
+    displayDate =
         "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}";
   }
 
   //  Update date with selected date
   void updateDate(DateTime selectedDate) {
     setState(() {
-      currentDate =
+      displayDate =
           "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}";
     });
   }
@@ -77,7 +77,7 @@ class _DialogBoxState extends State<DialogBox> {
                   const Icon(Icons.calendar_month_outlined),
                   const SizedBox(width: 10),
                   Text(
-                    currentDate,
+                    displayDate,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -89,9 +89,19 @@ class _DialogBoxState extends State<DialogBox> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Button(text: 'Save', onPressed: widget.onSave),
+                Button(
+                  text: 'Save',
+                  onPressed: () {
+                    //  call onSave function
+                    widget.onSave(
+                      widget.taskName.text,
+                      displayDate,
+                      "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}",
+                    );
+                  },
+                ),
                 const SizedBox(width: 20),
-                Button(text: 'Cancel', onPressed: widget.onCancel)
+                Button(text: 'Cancel', onPressed: widget.onCancel),
               ],
             ),
           ],

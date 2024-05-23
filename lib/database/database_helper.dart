@@ -6,7 +6,7 @@ class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
 
-  factory DatabaseHelper(){
+  factory DatabaseHelper() {
     return _instance;
   }
 
@@ -26,11 +26,14 @@ class DatabaseHelper {
       version: 1,
       onCreate: (db, version) {
         return db.execute(
-        '''
+          '''
         CREATE TABLE todos(
         id TEXT PRIMARY KEY,
         todoText TEXT,
-        isDone INTEGER
+        isDone INTEGER,
+        createdAt TEXT,
+        deadlineAt TEXT,
+        finishedAt TEXT
         )
         ''',
         );
@@ -38,24 +41,33 @@ class DatabaseHelper {
     );
   }
 
+  //  Function to insert ToDo object into the database
   Future<void> insertToDo(ToDo todo) async {
-    final db = await database;
+    final db = await database; //  get database
     await db.insert(
-      'todos',
+      'todos', //  name of the table
       todo.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: ConflictAlgorithm
+          .replace, //  if same id exist, it will overwrite with the new ones
     );
   }
 
+  //  Function to retrieves all todos from the database
   Future<List<ToDo>> getToDos() async {
-    final db = await database;
+    final db = await database; //  get database instance
+
+    //  query the database and return a list
     final List<Map<String, dynamic>> maps = await db.query('todos');
 
+    //  create a list of ToDo objects from  the list of maps
     return List.generate(maps.length, (i) {
       return ToDo(
         id: maps[i]['id'],
         todoText: maps[i]['todoText'],
         isDone: maps[i]['isDone'] == 1,
+        createdAt: maps[i]['createdAt'],
+        deadlineAt: maps[i]['deadlineAt'],
+        finishedAt: maps[i]['finishedAt'],
       );
     });
   }

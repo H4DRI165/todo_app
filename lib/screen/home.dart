@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../connection/database_helper.dart';
+import 'package:intl/intl.dart';
+import '../database/database_helper.dart';
 import '../model/todo.dart';
 import '../widgets/dialog_box.dart';
 import '../widgets/todo_item.dart';
@@ -18,6 +19,8 @@ class _HomeState extends State<Home> {
   final _todoController = TextEditingController();
   List<ToDo> _foundItem = [];
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  bool _isPastListVisible = true;
+  bool _isTodayListVisible = true;
 
   @override
   void initState() {
@@ -34,8 +37,96 @@ class _HomeState extends State<Home> {
     });
   }
 
-  void _sortItems(){
-    _foundItem.sort((a,b) => a.isDone ? 1: -1);
+  void _sortItems() {
+    _foundItem.sort((a, b) => a.isDone ? 1 : -1);
+  }
+
+  void _saveTask(String taskName, String deadlineAt, String createdAt) async {
+    if (taskName.isEmpty) {
+      Fluttertoast.showToast(
+        msg: "Please enter a task name",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+      );
+      return; // Exit the function without adding the todo item
+    }
+
+    ToDo newTodo = ToDo(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      todoText: taskName,
+      createdAt: createdAt,
+      deadlineAt: deadlineAt,
+    );
+
+    // Save the todo with additional data
+    await _dbHelper.insertToDo(newTodo);
+
+    _todoController.clear();
+    Navigator.of(context).pop();
+    _refreshTodoList();
+  }
+
+  void _createTask() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return DialogBox(
+            taskName: _todoController,
+            onSave: _saveTask,
+            onCancel: () {
+              //  clear text
+              _todoController.clear();
+              Navigator.of(context).pop();
+            });
+      },
+    );
+  }
+
+  void _handleChange(ToDo todo) async {
+    todo.isDone = !todo.isDone;
+    await _dbHelper.updateToDo(todo);
+    await _refreshTodoList();
+  }
+
+  void _deleteItem(String id) async {
+    await _dbHelper.deleteToDo(id);
+    _refreshTodoList();
+  }
+
+  void _runSearch(String enteredName) {
+    List<ToDo> results = [];
+    if (enteredName.isEmpty) {
+      results = _todosList;
+    } else {
+      results = _todosList
+          .where((item) =>
+              item.todoText!.toLowerCase().contains(enteredName.toLowerCase()))
+          .toList();
+    }
+    setState(() {
+      _foundItem = results;
+    });
+  }
+
+  List<ToDo> getPastTasks() {
+    return _foundItem.where((todo) {
+      final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+      final DateTime deadlineDate = dateFormat.parse(todo.deadlineAt!);
+      final DateTime today = DateTime.now();
+      return deadlineDate
+          .isBefore(DateTime(today.year, today.month, today.day));
+    }).toList();
+  }
+
+  List<ToDo> getTodayTasks() {
+    return _foundItem.where((todo) {
+      final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+      final DateTime deadlineDate = dateFormat.parse(todo.deadlineAt!);
+      final DateTime today = DateTime.now();
+      return deadlineDate.year == today.year &&
+          deadlineDate.month == today.month &&
+          deadlineDate.day == today.day;
+    }).toList();
   }
 
   @override
@@ -53,13 +144,116 @@ class _HomeState extends State<Home> {
                 const SizedBox(
                   height: 15,
                 ),
-                allTodosText(),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isPastListVisible = !_isPastListVisible;
+                    });
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Past',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w500),
+                      ),
+                      Icon(
+                        _isPastListVisible
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isPastListVisible) taskList(getPastTasks()),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isTodayListVisible = !_isTodayListVisible;
+                    });
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Today',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w500),
+                      ),
+                      Icon(
+                        _isTodayListVisible
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isTodayListVisible) todayTaskList(),
               ],
             ),
           ),
-          listTask(),
           addButton(),
         ],
+      ),
+    );
+  }
+
+  Widget taskList(List<ToDo> tasks) {
+    return Flexible(
+      child: ListView.builder(
+        scrollDirection: Axis.vertical,
+        shrinkWrap: true,
+        physics: const BouncingScrollPhysics(),
+        itemCount: tasks.length,
+        itemBuilder: (context, index) {
+          ToDo todoo = tasks[index];
+          return ToDoItem(
+            key: ValueKey(todoo.id),
+            todo: todoo,
+            onToDoChanged: _handleChange,
+            onDeleteItem: _deleteItem,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget todayTaskList() {
+    List<ToDo> tasks = getTodayTasks();
+    return Flexible(
+      child: ListView.builder(
+        scrollDirection: Axis.vertical,
+        physics: const BouncingScrollPhysics(),
+        itemCount: tasks.length + 1,
+        itemBuilder: (context, index) {
+          if (index == tasks.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 20, bottom: 70),
+              child: Container(
+                alignment: Alignment.center,
+                child: const Text(
+                  'Check all completed tasks',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.grey,
+                    decoration: TextDecoration.underline,
+                    decorationColor: Colors.grey,
+                  ),
+                ),
+              ),
+            );
+          }
+          ToDo todoo = tasks[index];
+          return ToDoItem(
+            key: ValueKey(todoo.id),
+            todo: todoo,
+            onToDoChanged: _handleChange,
+            onDeleteItem: _deleteItem,
+          );
+        },
       ),
     );
   }
@@ -84,68 +278,6 @@ class _HomeState extends State<Home> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Positioned listTask() {
-    return Positioned(
-      top: 120,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: Column(
-        children: [
-          Expanded(
-            child: ClipRect(
-              child: ListView.builder(
-                scrollDirection: Axis.vertical,
-                physics: const BouncingScrollPhysics(),
-                itemCount: _foundItem.length +
-                    1, // Add 1 for the additional text widget
-                itemBuilder: (context, index) {
-                  if (index == _foundItem.length) {
-                    //  Add text widget
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 20, bottom: 70),
-                      child: Container(
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Check all completed tasks',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.normal,
-                            color: Colors.grey,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Colors.grey,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  ToDo todoo = _foundItem[index];
-                  return ToDoItem(
-                    key: ValueKey(todoo.id),
-                    todo: todoo,
-                    onToDoChanged: _handleChange,
-                    onDeleteItem: _deleteItem,
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Container allTodosText() {
-    return Container(
-      margin: const EdgeInsets.only(left: 10),
-      alignment: Alignment.centerLeft,
-      child: const Text(
-        'All Todos',
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -202,69 +334,5 @@ class _HomeState extends State<Home> {
             )
           ]),
     );
-  }
-
-  void _saveTask() async {
-    String? todo = _todoController.text; // Retrieve todo from _todoController
-    if (todo.isEmpty) {
-      Fluttertoast.showToast(
-        msg: "Please enter a task name",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-      );
-      return; // Exit the function without adding the todo item
-    }
-
-    ToDo newTodo = ToDo(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      todoText: todo,
-    );
-
-    await _dbHelper.insertToDo(newTodo);
-    _todoController.clear();
-    Navigator.of(context).pop();
-    _refreshTodoList();
-  }
-
-  void _createTask() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return DialogBox(
-            taskName: _todoController,
-            onSave: _saveTask,
-            onCancel: () {
-              //  clear text
-              _todoController.clear();
-              Navigator.of(context).pop();
-            });
-      },
-    );
-  }
-
-  void _handleChange(ToDo todo) async {
-    todo.isDone = !todo.isDone;
-    await _dbHelper.updateToDo(todo);
-    await _refreshTodoList();
-  }
-
-  void _deleteItem(String id) async {
-    await _dbHelper.deleteToDo(id);
-    _refreshTodoList();
-  }
-
-  void _runSearch(String enteredName) {
-    List<ToDo> results = [];
-    if (enteredName.isEmpty) {
-      results = _todosList;
-    } else {
-      results = _todosList
-          .where((item) =>
-              item.todoText!.toLowerCase().contains(enteredName.toLowerCase()))
-          .toList();
-    }
-    setState(() {
-      _foundItem = results;
-    });
   }
 }
