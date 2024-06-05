@@ -57,7 +57,11 @@ class DatabaseHelper {
     final db = await database; //  get database instance
 
     //  query the database and return a list
-    final List<Map<String, dynamic>> maps = await db.query('todos');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'todos',
+      where: 'isDone = ?',
+      whereArgs: [0], // fetch todos where isDone is 0
+    );
 
     //  create a list of ToDo objects from  the list of maps
     return List.generate(maps.length, (i) {

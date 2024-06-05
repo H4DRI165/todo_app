@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
@@ -19,8 +20,11 @@ class _HomeState extends State<Home> {
   final _todoController = TextEditingController();
   List<ToDo> _foundItem = [];
   final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  //  trigger to hide and show the list
   bool _isPastListVisible = true;
   bool _isTodayListVisible = true;
+  bool _isFutureListVisible = false;
 
   @override
   void initState() {
@@ -89,8 +93,57 @@ class _HomeState extends State<Home> {
   }
 
   void _deleteItem(String id) async {
-    await _dbHelper.deleteToDo(id);
-    _refreshTodoList();
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          contentPadding: const EdgeInsets.only(top: 20, left: 20, right: 5,  bottom: 5),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Delete task?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'CANCEL',
+                      style: TextStyle(color: transBlue),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await _dbHelper.deleteToDo(id);
+                      _refreshTodoList();
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      'DELETE',
+                      style: TextStyle(color: lightBlue),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _runSearch(String enteredName) {
@@ -129,156 +182,97 @@ class _HomeState extends State<Home> {
     }).toList();
   }
 
+  List<ToDo> getFutureTasks() {
+    return _foundItem.where((todo) {
+      final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+      final DateTime deadlineDate = dateFormat.parse(todo.deadlineAt!);
+      final DateTime today = DateTime.now();
+      return deadlineDate.isAfter(DateTime(today.year, today.month, today.day));
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: white,
       appBar: _buildAppBar(),
-      body: Stack(
+      body: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            child: Column(
-              children: [
-                searchBox(),
-                const SizedBox(
-                  height: 15,
-                ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isPastListVisible = !_isPastListVisible;
-                    });
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Past',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w500),
-                      ),
-                      Icon(
-                        _isPastListVisible
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                      ),
-                    ],
+            child: searchBox(),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  if (getPastTasks().isNotEmpty)
+                    Column(
+                      children: [
+                        _buildPastListContainer(),
+                        if (_isPastListVisible) getData(getPastTasks()),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
+                  if (getTodayTasks().isNotEmpty)
+                    Column(
+                      children: [
+                        _buildTodayListContainer(),
+                        if (_isTodayListVisible) getData(getTodayTasks()),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
+                  if (getFutureTasks().isNotEmpty)
+                    Column(
+                      children: [
+                        _buildFutureListContainer(),
+                        if (_isFutureListVisible) getData(getFutureTasks()),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
+                  const Text(
+                    'Check all completed tasks',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.grey,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.grey,
+                    ),
                   ),
-                ),
-                if (_isPastListVisible) taskList(getPastTasks()),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isTodayListVisible = !_isTodayListVisible;
-                    });
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Today',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w500),
-                      ),
-                      Icon(
-                        _isTodayListVisible
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                      ),
-                    ],
-                  ),
-                ),
-                if (_isTodayListVisible) todayTaskList(),
-              ],
+                ],
+              ),
             ),
           ),
-          addButton(),
+          _buildAddButton(),
         ],
       ),
     );
   }
 
-  Widget taskList(List<ToDo> tasks) {
-    return Flexible(
-      child: ListView.builder(
-        scrollDirection: Axis.vertical,
-        shrinkWrap: true,
-        physics: const BouncingScrollPhysics(),
-        itemCount: tasks.length,
-        itemBuilder: (context, index) {
-          ToDo todoo = tasks[index];
-          return ToDoItem(
-            key: ValueKey(todoo.id),
-            todo: todoo,
-            onToDoChanged: _handleChange,
-            onDeleteItem: _deleteItem,
-          );
-        },
-      ),
-    );
-  }
-
-  Widget todayTaskList() {
-    List<ToDo> tasks = getTodayTasks();
-    return Flexible(
-      child: ListView.builder(
-        scrollDirection: Axis.vertical,
-        physics: const BouncingScrollPhysics(),
-        itemCount: tasks.length + 1,
-        itemBuilder: (context, index) {
-          if (index == tasks.length) {
-            return Padding(
-              padding: const EdgeInsets.only(top: 20, bottom: 70),
-              child: Container(
-                alignment: Alignment.center,
-                child: const Text(
-                  'Check all completed tasks',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.normal,
-                    color: Colors.grey,
-                    decoration: TextDecoration.underline,
-                    decorationColor: Colors.grey,
-                  ),
+  AppBar _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: lightGrey,
+      title: const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(
+              Icons.menu,
+              color: Colors.black,
+              size: 30,
+            ),
+            SizedBox(
+              height: 40,
+              width: 40,
+              child: ClipRect(
+                child: Icon(
+                  Icons.account_circle_outlined,
+                  size: 30,
                 ),
               ),
-            );
-          }
-          ToDo todoo = tasks[index];
-          return ToDoItem(
-            key: ValueKey(todoo.id),
-            todo: todoo,
-            onToDoChanged: _handleChange,
-            onDeleteItem: _deleteItem,
-          );
-        },
-      ),
-    );
-  }
-
-  Align addButton() {
-    return Align(
-      alignment: Alignment.bottomRight,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 30, right: 20),
-        child: ElevatedButton(
-          onPressed: _createTask,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue[300],
-            minimumSize: const Size(60, 60),
-            elevation: 10,
-          ),
-          child: const Text(
-            '+',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
+            )
+          ]),
     );
   }
 
@@ -310,29 +304,136 @@ class _HomeState extends State<Home> {
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: lightGrey,
-      title: const Row(
+  Widget getData(List<ToDo> tasks) {
+    return Column(
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 300),
+          child: ListView.builder(
+            scrollDirection: Axis.vertical,
+            shrinkWrap: true,
+            physics: const BouncingScrollPhysics(),
+            itemCount: tasks.length,
+            itemBuilder: (context, index) {
+              ToDo todoo = tasks[index];
+              return ToDoItem(
+                key: ValueKey(todoo.id),
+                todo: todoo,
+                onToDoChanged: _handleChange,
+                onDeleteItem: _deleteItem,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  GestureDetector _buildPastListContainer() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isPastListVisible = !_isPastListVisible;
+        });
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          margin: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Past',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+              ),
+              Icon(
+                _isPastListVisible
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  GestureDetector _buildTodayListContainer() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isTodayListVisible = !_isTodayListVisible;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(
-              Icons.menu,
-              color: Colors.black,
-              size: 30,
+            const Text(
+              'Today',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
             ),
-            SizedBox(
-              height: 40,
-              width: 40,
-              child: ClipRect(
-                child: Icon(
-                  Icons.account_circle_outlined,
-                  size: 30,
-                ),
-              ),
-            )
-          ]),
+            Icon(
+              _isTodayListVisible
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  GestureDetector _buildFutureListContainer() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isFutureListVisible = !_isFutureListVisible;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Future',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+            ),
+            Icon(
+              _isFutureListVisible
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Align _buildAddButton() {
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 20, right: 20),
+        child: ElevatedButton(
+          onPressed: _createTask,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: lightBlue,
+            minimumSize: const Size(60, 60),
+            elevation: 10,
+          ),
+          child: const Text(
+            '+',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -35,14 +35,15 @@ class ToDoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    //  Determine the text colour based on the deadline date
+    // Determine the text color based on the deadline date
     final Color deadlineColor =
         isPastDeadline(todo.deadlineAt!) ? Colors.red : grey;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 5, left: 20, right: 10),
-      child: ClipRect(
+    return Material(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 5, left: 20, right: 20),
         child: ListTile(
+          enabled: false,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
